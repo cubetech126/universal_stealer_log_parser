@@ -44,8 +44,8 @@ def extract_passwords_racoon(main_folder, output_folder, output_file):
                             user = line.split(":")[1].strip() if len(line.split(":")) > 1 else ""
                         elif line.startswith("PASS:") or line.startswith("password:") or line.startswith("Password") or line.startswith("USER PASSWORD:"):
                             password = line.split(":")[1].strip() if len(line.split(":")) > 1 else ""
-                    # Format the entry as "URL:USER:PASS"
-                    if url:
+                    # Format the entry as "URL:USER:PASS" only if URL, user, and password are not empty
+                    if url and user and password:
                         if url.startswith("android"):
                             package_name = url.split("@")[-1]
                             package_name = package_name.replace("-", "").replace("_", "").replace(".", "")
@@ -98,7 +98,7 @@ def extract_passwords_redline(main_folder, output_folder, output_file2):
                         elif line.startswith("PASS:") or line.startswith("password:") or line.startswith("Password") or line.startswith("USER PASSWORD"):
                             password = line.split(":")[1].strip() if len(line.split(":")) > 1 else ""
                     # Format the entry as "URL:USER:PASS"
-                    if url:
+                    if url and user and password:
                         if url.startswith("android"):
                             package_name = url.split("@")[-1]
                             package_name = package_name.replace("-", "").replace("_", "").replace(".", "")
