@@ -54,7 +54,8 @@ def extract_passwords_racoon(main_folder, output_folder, output_file):
                             url = f"{package_name}android.app"
                         else:
                             url_components = urlsplit(url)
-                            url = f"{url_components.scheme}://{url_components.netloc}"
+                            # url = f"{url_components.scheme}://{url_components.netloc}"
+                            url = url_components.geturl() # Preserve entire URL
                         formatted_entry = f'"{url}":{user}:{password}\n'
                         # Open the output file for appending
                         with open(os.path.join(output_folder, output_file), "a") as f:
@@ -106,7 +107,8 @@ def extract_passwords_redline(main_folder, output_folder, output_file2):
                             url = f"{package_name}android.app"
                         else:
                             url_components = urlsplit(url)
-                            url = f"{url_components.scheme}://{url_components.netloc}"
+                            # url = f"{url_components.scheme}://{url_components.netloc}"
+                            url = url_components.geturl() # Preserve entire URL
                         formatted_entry = f'"{url}":{user}:{password}\n'
                         # Open the output file for appending
                         with open(os.path.join(output_folder, output_file2), "a") as f:
