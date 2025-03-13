@@ -1,4 +1,5 @@
 import re
+import datetime
 
 # Prompt the user for the file path.
 file_path = input('Enter the file path: ')
@@ -14,6 +15,9 @@ def sql_escape(value):
     value = value.replace("'", "''")
     return value
 
+# Generate a timestamp in the desired format
+timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
 # Open the input file and create an output SQL file.
 with open(file_path, 'r') as infile, open('output.sql', 'w') as outfile:
     for line in infile:
@@ -27,6 +31,6 @@ with open(file_path, 'r') as infile, open('output.sql', 'w') as outfile:
             url = sql_escape(match.group(1))
             data = sql_escape(match.group(2))
             # Write an INSERT statement; adjust table name and columns as needed.
-            outfile.write(f"INSERT INTO logs (url, data) VALUES ('{url}', '{data}');\n")
+            outfile.write(f"INSERT INTO logs (url, data, created_at, updated_at) VALUES ('{url}', '{data}', '{timestamp}', '{timestamp}');\n")
         else:
             print("Line didn't match expected format:", line)
