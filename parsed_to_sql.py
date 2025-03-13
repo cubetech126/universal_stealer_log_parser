@@ -18,12 +18,22 @@ def sql_escape(value):
 # Generate a timestamp in the desired format
 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+# Using a set to track seen lines and eliminate duplicates.
+seen_lines = set()
+
 # Open the input file and create an output SQL file.
 with open(file_path, 'r') as infile, open('output.sql', 'w') as outfile:
-    for line in infile:
-        line = line.strip()
+    for raw_line in infile:
+        line = raw_line.strip()
         if not line:  # Skip empty lines
+            print ("[SKIP] - Empty line:", line)
             continue
+
+        # Skip if the line is a duplicate
+        if line in seen_lines:
+            print ("[SKIP] - Duplicate line:", line)
+            continue
+        seen_lines.add(line)
 
         # Use a regular expression to capture the URL (inside quotes) and the remaining data.
         match = re.match(r'"([^"]+)":(.+)', line)
