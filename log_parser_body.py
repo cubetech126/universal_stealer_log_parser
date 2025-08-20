@@ -1,8 +1,11 @@
 import os
+import json
 from urllib.parse import urlsplit
 
-
 def extract_passwords_racoon(main_folder, output_folder, output_file):
+    # Track duplicates only during this run
+    seen_entries = set()
+
     # Loop through all subdirectories in the main folder
     for subdir, dirs, files in os.walk(main_folder):
         # Loop through all files in the current subdirectory
@@ -56,14 +59,29 @@ def extract_passwords_racoon(main_folder, output_folder, output_file):
                             url_components = urlsplit(url)
                             # url = f"{url_components.scheme}://{url_components.netloc}"
                             url = url_components.geturl() # Preserve entire URL
-                        formatted_entry = f'"{url}":{user}:{password}\n'
-                        # Open the output file for appending
-                        with open(os.path.join(output_folder, output_file), "a") as f:
-                            # Write the formatted entry to the output file
-                            f.write(formatted_entry)
+                        formatted_entry = f'"{url}"|{user}|{password}\n'
+                        normalized_entry = formatted_entry.rstrip("\n")
+                        json_entry = json.dumps({"url": url, "email": user, "password": password}, ensure_ascii=False)
+
+                        # Skip certain words
+                        if "NOT_SAVED" in password:
+                            continue
+                        elif "arthouse" in url.lower():
+                            continue
+                        
+                        # Save if not duplicate
+                        if normalized_entry not in seen_entries:
+                            # Open the output file for appending
+                            with open(os.path.join(output_folder, output_file), "a", encoding="utf-8") as f:
+                                # Write the formatted entry to the output file
+                                f.write(json_entry + "\n")
+                            seen_entries.add(normalized_entry)
 
 
 def extract_passwords_redline(main_folder, output_folder, output_file2):
+    # Track duplicates only during this run
+    seen_entries = set()
+
     # Loop through all subdirectories in the main folder
     for subdir, dirs, files in os.walk(main_folder):
         # Loop through all files in the current subdirectory
@@ -109,8 +127,20 @@ def extract_passwords_redline(main_folder, output_folder, output_file2):
                             url_components = urlsplit(url)
                             # url = f"{url_components.scheme}://{url_components.netloc}"
                             url = url_components.geturl() # Preserve entire URL
-                        formatted_entry = f'"{url}":{user}:{password}\n'
-                        # Open the output file for appending
-                        with open(os.path.join(output_folder, output_file2), "a") as f:
-                            # Write the formatted entry to the output file
-                            f.write(formatted_entry)
+                        formatted_entry = f'"{url}"|{user}|{password}\n'
+                        normalized_entry = formatted_entry.rstrip("\n")
+                        json_entry = json.dumps({"url": url, "email": user, "password": password}, ensure_ascii=False)
+
+                        # Skip certain words
+                        if "NOT_SAVED" in password:
+                            continue
+                        elif "arthouse" in url.lower():
+                            continue
+                        
+                        # Save if not duplicate
+                        if normalized_entry not in seen_entries:
+                            # Open the output file for appending
+                            with open(os.path.join(output_folder, output_file2), "a", encoding="utf-8") as f:
+                                # Write the formatted entry to the output file
+                                f.write(json_entry + "\n")
+                            seen_entries.add(normalized_entry)
