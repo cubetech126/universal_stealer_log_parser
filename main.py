@@ -8,8 +8,8 @@ def main():
     main_folder = input("Specify the main folder: ")
     print(f"The main folder is: {main_folder}")
     output_folder = main_folder
-    process_cc(main_folder)
-    process_cc_v2(main_folder)
+    # process_cc(main_folder)
+    # process_cc_v2(main_folder)
     extract_passwords_racoon(main_folder, output_folder, output_file)
     extract_passwords_redline(main_folder, output_folder, output_file2)
 

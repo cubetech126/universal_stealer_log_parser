@@ -8,7 +8,7 @@ def extract_passwords_racoon(main_folder, output_folder, output_file):
         # Loop through all files in the current subdirectory
         for file in files:
             # Check if the current file is a passwords.txt file
-            if file == "passwords.txt" or "Passwords.txt" or "Password List.txt" or "_AllPasswords_list.txt" or "All Passwords.txt":
+            if file in ["passwords.txt", "Passwords.txt", "Password List.txt", "_AllPasswords_list.txt", "All Passwords.txt"]:
                 # Define the path to the current file
                 file_path = os.path.join(subdir, file)
                 # Open the current file for reading
@@ -69,7 +69,7 @@ def extract_passwords_redline(main_folder, output_folder, output_file2):
         # Loop through all files in the current subdirectory
         for file in files:
             # Check if the current file is a passwords.txt file
-            if file.lower() == "passwords.txt" or "Password List.txt" or "_AllPasswords_list.txt" or "All Passwords.txt":
+            if file.lower() in ["passwords.txt", "password list.txt", "_allpasswords_list.txt", "all passwords.txt", "found_credentials.txt", "credentials.txt"]:
                 # Define the path to the current file
                 file_path = os.path.join(subdir, file)
                 # Open the current file for reading
