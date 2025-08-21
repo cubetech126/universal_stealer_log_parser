@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from urllib.parse import urlsplit
 
 def extract_passwords_racoon(main_folder, output_folder, output_file):
@@ -23,7 +24,8 @@ def extract_passwords_racoon(main_folder, output_folder, output_file):
                     print(f"Error: Unable to read file {file_path}. Skipping...")
                     continue
                 # Split the contents of the file into individual password entries
-                entries = contents.split("\n\n")
+                # Support blank line separators as well as heavy line separators (e.g., "━━━━━━━━━━")
+                entries = re.split(r'(?:\n\n|\n[━=\-_*]{5,}\n)', contents)
                 # Loop through each password entry
                 for entry in entries:
                     # Split the entry into individual lines
@@ -66,7 +68,7 @@ def extract_passwords_racoon(main_folder, output_folder, output_file):
                         # Skip certain words
                         if "NOT_SAVED" in password:
                             continue
-                        elif "arthouse" in url.lower():
+                        elif "arthouse" in url.lower() or "arthouse" in user.lower() or "arthouse" in password.lower():
                             continue
                         
                         # Save if not duplicate
@@ -99,7 +101,8 @@ def extract_passwords_redline(main_folder, output_folder, output_file2):
                     print(f"Error: Unable to read file {file_path}. Skipping...")
                     continue
                 # Split the contents of the file into individual password entries
-                entries = contents.split("===============\n")
+                # Support heavy line separators (e.g., "━━━━━━━━━━") and equals lines
+                entries = re.split(r'(?:\n\n|\n[━=\-_*]{5,}\n)', contents)
                 # Loop through each password entry
                 for entry in entries:
                     # Split the entry into individual lines
@@ -134,7 +137,7 @@ def extract_passwords_redline(main_folder, output_folder, output_file2):
                         # Skip certain words
                         if "NOT_SAVED" in password:
                             continue
-                        elif "arthouse" in url.lower():
+                        elif "arthouse" in url.lower() or "arthouse" in user.lower() or "arthouse" in password.lower():
                             continue
                         
                         # Save if not duplicate
