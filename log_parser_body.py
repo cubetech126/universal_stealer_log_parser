@@ -3,122 +3,68 @@ import json
 import re
 from urllib.parse import urlsplit
 
-def extract_passwords_racoon(main_folder, output_folder, output_file):
+def extract_passwords_all(main_folder, output_folder, output_file_all):
     # Track duplicates only during this run
     seen_entries = set()
 
+    # Supported filenames (case-insensitive)
+    supported_files = {
+        "passwords.txt",
+        "password list.txt",
+        "_allpasswords_list.txt",
+        "all passwords.txt",
+        "found_credentials.txt",
+        "credentials.txt",
+        # Common variants with spaces/underscore/case
+        "_allpasswords_list.txt",
+        "password list.txt",
+        "all passwords.txt",
+        # Mixed case variants seen in other logs
+        "password list.txt",
+        "passwords.txt",
+        "all passwords.txt",
+    }
+
     # Loop through all subdirectories in the main folder
     for subdir, dirs, files in os.walk(main_folder):
-        # Loop through all files in the current subdirectory
         for file in files:
-            # Check if the current file is a passwords.txt file
-            if file in ["passwords.txt", "Passwords.txt", "Password List.txt", "_AllPasswords_list.txt", "All Passwords.txt"]:
-                # Define the path to the current file
+            file_lower = file.lower()
+            # Include explicit case-sensitive names from older Racoon logs
+            if (file_lower in supported_files):
                 file_path = os.path.join(subdir, file)
-                # Open the current file for reading
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:
-                        # Read the contents of the file
                         contents = f.read()
                 except UnicodeDecodeError:
                     print(f"Error: Unable to read file {file_path}. Skipping...")
                     continue
-                # Split the contents of the file into individual password entries
-                # Support blank line separators as well as heavy line separators (e.g., "━━━━━━━━━━")
+
+                # Split entries by blank lines or heavy separators (e.g., lines of ━, =, -, _ or *)
                 entries = re.split(r'(?:\n\n|\n[━=\-_*]{5,}\n)', contents)
-                # Loop through each password entry
+
                 for entry in entries:
-                    # Split the entry into individual lines
-                    lines = entry.split("\n")
-                    # Extract the URL, username, and password from the entry
-                    url = ""
-                    user = ""
-                    password = ""
-                    for line in lines:
-                        if line.startswith("URL:"):
-                            url = line.split("URL:")[1].strip()
-                        elif line.startswith("url:"):
-                            url = line.split("url:")[1].strip() if len(line.split("url:")) > 1 else ""
-                        elif line.startswith("Url:"):
-                            url = line.split("Url:")[1].strip() if len(line.split("Url:")) > 1 else ""
-                        elif line.startswith("Host:"):
-                            url = line.split("Host:")[1].strip() if len(line.split("Host:")) > 1 else ""
-                        elif line.startswith("HOSTNAME:"):
-                            url = line.split("HOSTNAME:")[1].strip() if len(line.split("HOSTNAME:")) > 1 else ""
-                        elif line.startswith("USER:") or line.startswith("login:") or line.startswith("Login") or line.startswith("Username") or line.startswith("USER LOGIN:"):
-                            user = line.split(":")[1].strip() if len(line.split(":")) > 1 else ""
-                        elif line.startswith("PASS:") or line.startswith("password:") or line.startswith("Password") or line.startswith("USER PASSWORD:"):
-                            password = line.split(":")[1].strip() if len(line.split(":")) > 1 else ""
-                    # Format the entry as "URL:USER:PASS" only if URL, user, and password are not empty
-                    if url and user and password:
-                        if url.startswith("android"):
-                            package_name = url.split("@")[-1]
-                            package_name = package_name.replace("-", "").replace("_", "").replace(".", "")
-                            package_name = ".".join(package_name.split("/")[::-1])
-                            package_name = ".".join(package_name.split(".")[::-1])
-                            url = f"{package_name}android.app"
-                        else:
-                            url_components = urlsplit(url)
-                            # url = f"{url_components.scheme}://{url_components.netloc}"
-                            url = url_components.geturl() # Preserve entire URL
-                        formatted_entry = f'"{url}"|{user}|{password}\n'
-                        normalized_entry = formatted_entry.rstrip("\n")
-                        json_entry = json.dumps({"url": url, "email": user, "password": password}, ensure_ascii=False)
-
-                        # Skip certain words
-                        if "NOT_SAVED" in password:
-                            continue
-                        elif "arthouse" in url.lower() or "arthouse" in user.lower() or "arthouse" in password.lower():
-                            continue
-                        
-                        # Save if not duplicate
-                        if normalized_entry not in seen_entries:
-                            # Open the output file for appending
-                            with open(os.path.join(output_folder, output_file), "a", encoding="utf-8") as f:
-                                # Write the formatted entry to the output file
-                                f.write(json_entry + "\n")
-                            seen_entries.add(normalized_entry)
-
-
-def extract_passwords_redline(main_folder, output_folder, output_file2):
-    # Track duplicates only during this run
-    seen_entries = set()
-
-    # Loop through all subdirectories in the main folder
-    for subdir, dirs, files in os.walk(main_folder):
-        # Loop through all files in the current subdirectory
-        for file in files:
-            # Check if the current file is a passwords.txt file
-            if file.lower() in ["passwords.txt", "password list.txt", "_allpasswords_list.txt", "all passwords.txt", "found_credentials.txt", "credentials.txt"]:
-                # Define the path to the current file
-                file_path = os.path.join(subdir, file)
-                # Open the current file for reading
-                try:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        # Read the contents of the file
-                        contents = f.read()
-                except UnicodeDecodeError:
-                    print(f"Error: Unable to read file {file_path}. Skipping...")
-                    continue
-                # Split the contents of the file into individual password entries
-                # Support heavy line separators (e.g., "━━━━━━━━━━") and equals lines
-                entries = re.split(r'(?:\n\n|\n[━=\-_*]{5,}\n)', contents)
-                # Loop through each password entry
-                for entry in entries:
-                    # Split the entry into individual lines
+                    if not entry.strip():
+                        continue
                     lines = entry.strip().split("\n")
-                    # Extract the URL, username, and password from the entry
+
                     url = ""
                     user = ""
                     password = ""
+
                     for line in lines:
-                        if line.startswith("URL:") or line.startswith("url:") or line.startswith("Url:") or line.startswith("Host:") or line.startswith("HOSTNAME:"):
-                            url = line.split(":", 1)[1].strip() if len(line.split(":")) > 1 else ""
-                        elif line.startswith("USER:") or line.startswith("login:") or line.startswith("Login") or line.startswith("Username") or line.startswith("USER LOGIN:"):
-                            user = line.split(":")[1].strip() if len(line.split(":")) > 1 else ""
-                        elif line.startswith("PASS:") or line.startswith("password:") or line.startswith("Password") or line.startswith("USER PASSWORD"):
-                            password = line.split(":")[1].strip() if len(line.split(":")) > 1 else ""
-                    # Format the entry as "URL:USER:PASS"
+                        if ":" not in line:
+                            continue
+                        key, value = line.split(":", 1)
+                        key = key.strip().lower()
+                        value = value.strip()
+
+                        if key in ("url", "host", "hostname"):
+                            url = value
+                        elif key in ("user", "login", "username", "user login"):
+                            user = value
+                        elif key in ("pass", "password", "user password"):
+                            password = value
+
                     if url and user and password:
                         if url.startswith("android"):
                             package_name = url.split("@")[-1]
@@ -128,22 +74,23 @@ def extract_passwords_redline(main_folder, output_folder, output_file2):
                             url = f"{package_name}android.app"
                         else:
                             url_components = urlsplit(url)
-                            # url = f"{url_components.scheme}://{url_components.netloc}"
-                            url = url_components.geturl() # Preserve entire URL
+                            url = url_components.geturl()
+
                         formatted_entry = f'"{url}"|{user}|{password}\n'
                         normalized_entry = formatted_entry.rstrip("\n")
                         json_entry = json.dumps({"url": url, "email": user, "password": password}, ensure_ascii=False)
 
-                        # Skip certain words
+                        # Skip undesired entries
                         if "NOT_SAVED" in password:
                             continue
-                        elif "arthouse" in url.lower() or "arthouse" in user.lower() or "arthouse" in password.lower():
+                        elif (
+                            "arthouse" in url.lower()
+                            or "arthouse" in user.lower()
+                            or "arthouse" in password.lower()
+                        ):
                             continue
-                        
-                        # Save if not duplicate
+
                         if normalized_entry not in seen_entries:
-                            # Open the output file for appending
-                            with open(os.path.join(output_folder, output_file2), "a", encoding="utf-8") as f:
-                                # Write the formatted entry to the output file
+                            with open(os.path.join(output_folder, output_file_all), "a", encoding="utf-8") as f:
                                 f.write(json_entry + "\n")
                             seen_entries.add(normalized_entry)
