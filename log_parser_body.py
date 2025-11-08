@@ -4,6 +4,9 @@ import re
 from urllib.parse import urlsplit
 
 def extract_passwords_all(main_folder, output_folder, output_file_all):
+    # Print saying that the passwords are being extracted
+    print("Extracting passwords...")
+
     # Track duplicates only during this run
     seen_entries = set()
 
@@ -67,14 +70,19 @@ def extract_passwords_all(main_folder, output_folder, output_file_all):
 
                     if url and user and password:
                         if url.startswith("android"):
-                            package_name = url.split("@")[-1]
-                            package_name = package_name.replace("-", "").replace("_", "").replace(".", "")
-                            package_name = ".".join(package_name.split("/")[::-1])
-                            package_name = ".".join(package_name.split(".")[::-1])
-                            url = f"{package_name}android.app"
+                            # Keep Android package name intact (e.g., com.taxis99) without reversing or stripping dots
+                            after_at = url.split("@", 1)[-1] if "@" in url else url[len("android://"):]
+                            pkg = after_at.split("/", 1)[0].strip("/")
+                            # Only allow reasonable package characters
+                            pkg = re.sub(r"[^A-Za-z0-9._\-]", "", pkg)
+                            url = f"android://{pkg}" if pkg else url.strip()
                         else:
-                            url_components = urlsplit(url)
-                            url = url_components.geturl()
+                            try:
+                                url_components = urlsplit(url)
+                                url = url_components.geturl()
+                            except ValueError:
+                                # Keep original value if urlsplit fails (e.g., malformed IPv6 URL)
+                                url = url.strip()
 
                         formatted_entry = f'"{url}"|{user}|{password}\n'
                         normalized_entry = formatted_entry.rstrip("\n")
