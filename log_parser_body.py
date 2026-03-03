@@ -12,6 +12,7 @@ def extract_passwords_all(main_folder, output_folder, output_file_all):
 
     # Supported filenames (case-insensitive)
     supported_files = {
+        'All_Passwords.txt',
         "passwords.txt",
         "password list.txt",
         "_allpasswords_list.txt",
@@ -39,8 +40,12 @@ def extract_passwords_all(main_folder, output_folder, output_file_all):
                     with open(file_path, "r", encoding="utf-8") as f:
                         contents = f.read()
                 except UnicodeDecodeError:
-                    print(f"Error: Unable to read file {file_path}. Skipping...")
-                    continue
+                    try:
+                        with open(file_path, "r", encoding="latin-1") as f:
+                            contents = f.read()
+                    except Exception:
+                        print(f"Error: Unable to read file {file_path}. Skipping...")
+                        continue
 
                 # Split entries by blank lines or heavy separators (e.g., lines of ━, =, -, _ or *)
                 entries = re.split(r'(?:\n\n|\n[━=\-_*]{5,}\n)', contents)
