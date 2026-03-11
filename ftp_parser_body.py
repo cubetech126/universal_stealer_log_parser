@@ -156,7 +156,10 @@ def _parse_text_file(file_path, ftp_only=False, dir_is_ftp=False):
                     records.append(current)
                     current = {"soft": current.get("soft", "")}
                 current["host_raw"] = value
-            elif key in ("soft", "application"):
+            elif key in ("soft", "application", "browser"):
+                if current.get("host_raw") or current.get("url"):
+                    records.append(current)
+                    current = {}
                 current["soft"] = value
             elif key == "port":
                 current["port_raw"] = value
@@ -203,6 +206,8 @@ def _parse_text_file(file_path, ftp_only=False, dir_is_ftp=False):
                     except ValueError:
                         host = host_raw
                 else:
+                    if "://" in host_raw:
+                        continue
                     parts = host_raw.rsplit(":", 1)
                     if len(parts) == 2 and parts[1].isdigit():
                         host = parts[0]
@@ -226,6 +231,8 @@ def _parse_text_file(file_path, ftp_only=False, dir_is_ftp=False):
                 if any(kw in soft_lower for kw in FTP_SOFTWARE_KEYWORDS):
                     is_ftp = True
                 if url.lower().startswith(("ftp://", "sftp://")):
+                    is_ftp = True
+                if host_raw.lower().startswith(("ftp://", "sftp://")):
                     is_ftp = True
                 if not is_ftp:
                     continue

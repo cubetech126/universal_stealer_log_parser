@@ -53,32 +53,51 @@ def extract_passwords_all(main_folder, output_folder, output_file_all):
                 for entry in entries:
                     if not entry.strip():
                         continue
-                    lines = entry.strip().split("\n")
 
-                    url = ""
-                    user = ""
-                    password = ""
+                    records = []
+                    current = {}
 
-                    for line in lines:
+                    for line in entry.strip().split("\n"):
                         if ":" not in line:
                             continue
                         key, value = line.split(":", 1)
-                        key = key.strip().lower()
-                        value = value.strip()
+                        key = key.strip()
+                        if key.startswith('"') and key.endswith('"'):
+                            key = key[1:-1]
+                        key = key.lower()
+                        value = value.strip().rstrip(",")
+                        if value.startswith('"') and value.endswith('"'):
+                            value = value[1:-1]
 
-                        if key in ("url", "host", "hostname"):
-                            url = value
+                        if key in ("soft", "application", "browser"):
+                            if current.get("url"):
+                                records.append(current)
+                                current = {}
+                            current["soft"] = value
+                        elif key in ("url", "host", "hostname"):
+                            if current.get("url"):
+                                records.append(current)
+                                current = {"soft": current.get("soft", "")}
+                            current["url"] = value
                         elif key in ("user", "login", "username", "user login"):
-                            user = value
+                            current["user"] = value
                         elif key in ("pass", "password", "user password"):
-                            password = value
+                            current["password"] = value
 
-                    if url and user and password:
+                    if current.get("url"):
+                        records.append(current)
+
+                    for rec in records:
+                        url = rec.get("url", "")
+                        user = rec.get("user", "")
+                        password = rec.get("password", "")
+
+                        if not (url and user and password):
+                            continue
+
                         if url.startswith("android"):
-                            # Keep Android package name intact (e.g., com.taxis99) without reversing or stripping dots
                             after_at = url.split("@", 1)[-1] if "@" in url else url[len("android://"):]
                             pkg = after_at.split("/", 1)[0].strip("/")
-                            # Only allow reasonable package characters
                             pkg = re.sub(r"[^A-Za-z0-9._\-]", "", pkg)
                             url = f"android://{pkg}" if pkg else url.strip()
                         else:
@@ -86,14 +105,12 @@ def extract_passwords_all(main_folder, output_folder, output_file_all):
                                 url_components = urlsplit(url)
                                 url = url_components.geturl()
                             except ValueError:
-                                # Keep original value if urlsplit fails (e.g., malformed IPv6 URL)
                                 url = url.strip()
 
                         formatted_entry = f'"{url}"|{user}|{password}\n'
                         normalized_entry = formatted_entry.rstrip("\n")
                         json_entry = json.dumps({"url": url, "email": user, "password": password}, ensure_ascii=False)
 
-                        # Skip undesired entries
                         if "NOT_SAVED" in password:
                             continue
                         elif any(

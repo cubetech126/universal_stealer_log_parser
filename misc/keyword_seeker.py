@@ -78,6 +78,10 @@ def progress_printer(counter, total, done_event):
     sys.stdout.flush()
 
 
+def ask_yes_no(prompt):
+    return input(prompt).strip().lower() in ("y", "yes")
+
+
 def main():
     keyword = input("\n  Enter keyword to search for: ").strip()
     if not keyword:
@@ -89,8 +93,27 @@ def main():
         print(f"  '{search_path}' is not a valid directory. Exiting.")
         return
 
+    skip_history = ask_yes_no("  Ignore files containing 'history' in the name? (y/n): ")
+    skip_cookies = ask_yes_no("  Ignore files containing 'cookies' in the name? (y/n): ")
+    skip_autofill = ask_yes_no("  Ignore files with 'Autofill' in the path? (y/n): ")
+
     print(f"\n  Collecting files in '{search_path}'...")
     all_files = collect_files(search_path)
+
+    pre_filter = len(all_files)
+    if skip_history or skip_cookies or skip_autofill:
+        filtered = []
+        for fp in all_files:
+            name_lower = os.path.basename(fp).lower()
+            if skip_history and "history" in name_lower:
+                continue
+            if skip_cookies and "cookies" in name_lower:
+                continue
+            if skip_autofill and "autofill" in fp.lower():
+                continue
+            filtered.append(fp)
+        all_files = filtered
+        print(f"  Filtered out {pre_filter - len(all_files):,} files.")
     total = len(all_files)
 
     if total == 0:

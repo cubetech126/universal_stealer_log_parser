@@ -55,11 +55,12 @@ def extract_imap_smtp_all(main_folder, output_folder, output_file_all):
         'app_foxmail.txt',
     }
     json_files = {'passwords.json'}
+    tsv_files = {'passwords.tsv'}
     mail_only_files = {
         'email_credentials.txt', 'emails.txt',
         'app_outlook.txt', 'app_thunderbird.txt', 'app_foxmail.txt',
     }
-    supported_files = text_files | json_files
+    supported_files = text_files | json_files | tsv_files
 
     for subdir, dirs, files in os.walk(main_folder):
         for file in files:
@@ -72,6 +73,8 @@ def extract_imap_smtp_all(main_folder, output_folder, output_file_all):
 
             if file_lower in json_files:
                 entries = _parse_json_file(file_path, dir_is_mail=dir_is_mail)
+            elif file_lower in tsv_files:
+                entries = _parse_tsv_file(file_path)
             else:
                 entries = _parse_text_file(
                     file_path,
@@ -121,6 +124,74 @@ def _is_mail_host(host):
         if host_lower.startswith(prefix):
             return True
     return False
+
+
+def _parse_tsv_file(file_path):
+    """Parse tab-separated files with url\\tlogin\\tpassword lines."""
+    entries = []
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            contents = f.read()
+    except UnicodeDecodeError:
+        try:
+            with open(file_path, "r", encoding="latin-1") as f:
+                contents = f.read()
+        except Exception as e:
+            print(f"Error reading {file_path}: {e}")
+            return entries
+    except (FileNotFoundError, OSError) as e:
+        print(f"Error reading {file_path}: {e}")
+        return entries
+
+    for line in contents.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+
+        url, username, password = parts[0].strip(), parts[1].strip(), parts[2].strip()
+
+        if not url.lower().startswith(MAIL_SCHEMES):
+            continue
+        if not password:
+            continue
+
+        host = ""
+        port = None
+        scheme = ""
+        try:
+            parsed = urlsplit(url)
+            host = parsed.hostname or ""
+            port = parsed.port
+            scheme = parsed.scheme
+        except ValueError:
+            continue
+
+        if not host:
+            continue
+
+        if "NOT_SAVED" in password:
+            continue
+        if any(
+            kw in val
+            for val in (host.lower(), username.lower(), password.lower())
+            for kw in ("arthouse", "cloud_arthouse", "@cloud_arthouse", "@arthouse_full_bot")
+        ):
+            continue
+
+        protocol = _infer_protocol(host, port, scheme)
+
+        entries.append({
+            "host": host,
+            "protocol": protocol,
+            "username": username or None,
+            "password": password,
+        })
+
+    return entries
 
 
 def _parse_json_file(file_path, dir_is_mail=False):
@@ -260,6 +331,9 @@ def _parse_text_file(file_path, mail_only=False, dir_is_mail=False):
                 current["host_raw"] = value
                 current["protocol_hint"] = key.split()[0]
             elif key in ("soft", "application", "browser"):
+                if current.get("host_raw") or current.get("url"):
+                    records.append(current)
+                    current = {}
                 current["soft"] = value
             elif key == "port":
                 current["port_raw"] = value
@@ -274,6 +348,9 @@ def _parse_text_file(file_path, mail_only=False, dir_is_mail=False):
                 if not current.get("username"):
                     current["username"] = value
             elif key == "url":
+                if current.get("url"):
+                    records.append(current)
+                    current = {"soft": current.get("soft", "")}
                 current["url"] = value
 
         if current.get("host_raw") or current.get("url"):
