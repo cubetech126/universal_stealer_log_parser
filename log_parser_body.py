@@ -96,10 +96,10 @@ def extract_passwords_all(main_folder, output_folder, output_file_all):
                         # Skip undesired entries
                         if "NOT_SAVED" in password:
                             continue
-                        elif (
-                            "arthouse" in url.lower()
-                            or "arthouse" in user.lower()
-                            or "arthouse" in password.lower()
+                        elif any(
+                            kw in val
+                            for val in (url.lower(), user.lower(), password.lower())
+                            for kw in ("arthouse", "cloud_arthouse", "@cloud_arthouse", "@arthouse_full_bot")
                         ):
                             continue
 

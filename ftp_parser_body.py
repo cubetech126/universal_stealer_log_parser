@@ -69,8 +69,24 @@ def _parse_filezilla_xml(file_path):
     """Parse sitemanager.xml / recentservers.xml for <Server> entries."""
     entries = []
     try:
-        tree = ET.parse(file_path)
-    except (ET.ParseError, FileNotFoundError, OSError) as e:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            raw = f.read()
+    except (FileNotFoundError, OSError) as e:
+        print(f"Error reading XML {file_path}: {e}")
+        return entries
+
+    # Strip junk (ads/branding) that some stealers prepend before the XML
+    xml_start = raw.find("<?xml")
+    if xml_start == -1:
+        xml_start = raw.find("<FileZilla3")
+    if xml_start == -1:
+        xml_start = raw.find("<Server")
+    if xml_start != -1:
+        raw = raw[xml_start:]
+
+    try:
+        tree = ET.ElementTree(ET.fromstring(raw))
+    except ET.ParseError as e:
         print(f"Error parsing XML {file_path}: {e}")
         return entries
 
@@ -124,12 +140,9 @@ def _parse_text_file(file_path, ftp_only=False, dir_is_ftp=False):
         if not block:
             continue
 
-        soft = ""
-        host_raw = ""
-        port_raw = ""
-        username = ""
-        password = ""
-        url = ""
+        # Split block into per-entry records; a new record starts on each Host/Hostname key
+        records = []
+        current = {}
 
         for line in block.split("\n"):
             if ":" not in line:
@@ -138,71 +151,99 @@ def _parse_text_file(file_path, ftp_only=False, dir_is_ftp=False):
             key = key.strip().lower()
             value = value.strip()
 
-            if key in ("soft", "application"):
-                soft = value
-            elif key in ("host", "hostname"):
-                host_raw = value
+            if key in ("host", "hostname"):
+                if current.get("host_raw"):
+                    records.append(current)
+                    current = {"soft": current.get("soft", "")}
+                current["host_raw"] = value
+            elif key in ("soft", "application"):
+                current["soft"] = value
             elif key == "port":
-                port_raw = value
+                current["port_raw"] = value
             elif key in ("user", "login", "username", "user login"):
-                username = value
+                current["username"] = value
             elif key in ("pass", "password", "user password"):
-                password = value
+                current["password"] = value
             elif key == "url":
-                url = value
+                current["url"] = value
 
-        # --- Resolve host & port ---
-        host = ""
-        port = None
+        if current.get("host_raw") or current.get("url"):
+            records.append(current)
 
-        # ftp:// or sftp:// URL → extract host/port from it
-        if url and url.lower().startswith(("ftp://", "sftp://")):
-            try:
-                parsed = urlsplit(url)
-                host = parsed.hostname or ""
-                port = parsed.port
-            except ValueError:
-                pass
+        for rec in records:
+            soft = rec.get("soft", "")
+            host_raw = rec.get("host_raw", "")
+            port_raw = rec.get("port_raw", "")
+            username = rec.get("username", "")
+            password = rec.get("password", "")
+            url = rec.get("url", "")
 
-        # Host: field takes precedence; may contain host:port
-        if host_raw:
-            parts = host_raw.rsplit(":", 1)
-            if len(parts) == 2 and parts[1].isdigit():
-                host = parts[0]
-                port = int(parts[1])
-            else:
-                host = host_raw
+            # --- Resolve host & port ---
+            host = ""
+            port = None
 
-        # Explicit Port: field overrides
-        if port_raw:
-            try:
-                port = int(port_raw)
-            except ValueError:
-                pass
+            if url and url.lower().startswith(("ftp://", "sftp://")):
+                try:
+                    parsed = urlsplit(url)
+                    host = parsed.hostname or ""
+                    port = parsed.port
+                except ValueError:
+                    pass
 
-        if not host or not password:
-            continue
+            if host_raw:
+                host_lower = host_raw.lower()
+                if host_lower.startswith(("http://", "https://")):
+                    continue
+                if host_lower.startswith(("ftp://", "sftp://")):
+                    try:
+                        parsed_h = urlsplit(host_raw)
+                        host = parsed_h.hostname or ""
+                        if parsed_h.port:
+                            port = parsed_h.port
+                    except ValueError:
+                        host = host_raw
+                else:
+                    parts = host_raw.rsplit(":", 1)
+                    if len(parts) == 2 and parts[1].isdigit():
+                        host = parts[0]
+                        port = int(parts[1])
+                    else:
+                        host = host_raw
 
-        # --- FTP filtering ---
-        if not ftp_only:
-            is_ftp = dir_is_ftp
-            soft_lower = soft.lower()
-            if any(kw in soft_lower for kw in FTP_SOFTWARE_KEYWORDS):
-                is_ftp = True
-            if url.lower().startswith(("ftp://", "sftp://")):
-                is_ftp = True
-            if not is_ftp:
+            if port_raw:
+                try:
+                    port = int(port_raw)
+                except ValueError:
+                    pass
+
+            if not host or not password:
                 continue
 
-        # Skip undesired entries
-        if "NOT_SAVED" in password:
-            continue
+            # --- FTP filtering ---
+            if not ftp_only:
+                is_ftp = dir_is_ftp
+                soft_lower = soft.lower()
+                if any(kw in soft_lower for kw in FTP_SOFTWARE_KEYWORDS):
+                    is_ftp = True
+                if url.lower().startswith(("ftp://", "sftp://")):
+                    is_ftp = True
+                if not is_ftp:
+                    continue
 
-        entries.append({
-            "host": host,
-            "port": port,
-            "username": username or None,
-            "password": password,
-        })
+            if "NOT_SAVED" in password:
+                continue
+            elif any(
+                kw in val
+                for val in (host.lower(), str(port or "").lower(), (username or "").lower(), password.lower())
+                for kw in ("arthouse", "cloud_arthouse", "@cloud_arthouse", "@arthouse_full_bot")
+            ):
+                continue
+
+            entries.append({
+                "host": host,
+                "port": port,
+                "username": username or None,
+                "password": password,
+            })
 
     return entries
