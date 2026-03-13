@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import threading
 import time
@@ -26,7 +27,7 @@ def collect_files(root):
     return paths
 
 
-def process_file(filepath, keyword, keyword_bytes):
+def process_file(filepath, keyword, keyword_bytes, pattern=None):
     try:
         with open(filepath, "rb") as f:
             chunk = f.read(BINARY_CHECK_SIZE)
@@ -36,26 +37,37 @@ def process_file(filepath, keyword, keyword_bytes):
             rest = f.read()
             raw = chunk + rest
 
-        if keyword_bytes not in raw:
+        if pattern is None and keyword_bytes not in raw:
             return filepath, [], False
 
         hits = []
         for line_num, line in enumerate(raw.split(b"\n"), start=1):
-            if keyword_bytes in line:
-                try:
-                    decoded = line.decode("utf-8", errors="replace").strip()
-                except Exception:
+            try:
+                decoded = line.decode("utf-8", errors="replace").strip()
+            except Exception:
+                continue
+
+            if pattern is not None:
+                match = pattern.search(decoded)
+                if not match:
                     continue
-                if len(decoded) > PREVIEW_MAX_LEN:
+            else:
+                if keyword_bytes not in line:
+                    continue
+
+            if len(decoded) > PREVIEW_MAX_LEN:
+                if pattern is not None:
+                    idx = match.start()
+                else:
                     idx = decoded.find(keyword)
                     if idx == -1:
                         idx = 0
-                    start = max(0, idx - PREVIEW_MAX_LEN // 3)
-                    end = min(len(decoded), start + PREVIEW_MAX_LEN)
-                    preview = ("..." if start > 0 else "") + decoded[start:end] + ("..." if end < len(decoded) else "")
-                else:
-                    preview = decoded
-                hits.append((line_num, preview))
+                start = max(0, idx - PREVIEW_MAX_LEN // 3)
+                end = min(len(decoded), start + PREVIEW_MAX_LEN)
+                preview = ("..." if start > 0 else "") + decoded[start:end] + ("..." if end < len(decoded) else "")
+            else:
+                preview = decoded
+            hits.append((line_num, preview))
         return filepath, hits, False
 
     except (OSError, PermissionError):
@@ -83,10 +95,19 @@ def ask_yes_no(prompt):
 
 
 def main():
-    keyword = input("\n  Enter keyword to search for: ").strip()
+    keyword = input("\n  Enter keyword / regex pattern to search for: ").strip()
     if not keyword:
         print("  No keyword provided. Exiting.")
         return
+
+    use_regex = ask_yes_no("  Use regex mode? (y/n): ")
+    pattern = None
+    if use_regex:
+        try:
+            pattern = re.compile(keyword)
+        except re.error as e:
+            print(f"  Invalid regex pattern: {e}")
+            return
 
     search_path = input("  Enter directory path to search: ").strip()
     if not os.path.isdir(search_path):
@@ -120,7 +141,8 @@ def main():
         print("  No files found. Exiting.")
         return
 
-    print(f"  Found {total:,} files. Scanning for '{keyword}' with {WORKER_COUNT} threads...\n")
+    mode_label = "regex" if use_regex else "literal"
+    print(f"  Found {total:,} files. Scanning for '{keyword}' ({mode_label}) with {WORKER_COUNT} threads...\n")
 
     keyword_bytes = keyword.encode("utf-8", errors="replace")
     results = {}
@@ -135,7 +157,7 @@ def main():
     t_start = time.perf_counter()
 
     with ThreadPoolExecutor(max_workers=WORKER_COUNT) as pool:
-        futures = {pool.submit(process_file, fp, keyword, keyword_bytes): fp for fp in all_files}
+        futures = {pool.submit(process_file, fp, keyword, keyword_bytes, pattern): fp for fp in all_files}
 
         for future in as_completed(futures):
             filepath, hits, was_binary = future.result()
@@ -162,7 +184,10 @@ def main():
         for filepath, hits in results.items():
             print(f"\n  📄 {filepath}")
             for line_num, preview in hits:
-                highlighted = preview.replace(keyword, f"\033[91m{keyword}\033[0m")
+                if pattern is not None:
+                    highlighted = pattern.sub(lambda m: f"\033[91m{m.group()}\033[0m", preview)
+                else:
+                    highlighted = preview.replace(keyword, f"\033[91m{keyword}\033[0m")
                 print(f"     Line {line_num}: {highlighted}")
 
         print("\n  " + "─" * 70)
