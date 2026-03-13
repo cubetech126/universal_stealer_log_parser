@@ -242,7 +242,7 @@ def _parse_text_file(file_path, ftp_only=False, dir_is_ftp=False):
             elif any(
                 kw in val
                 for val in (host.lower(), str(port or "").lower(), (username or "").lower(), password.lower())
-                for kw in ("arthouse", "cloud_arthouse", "@cloud_arthouse", "@arthouse_full_bot")
+                for kw in ("arthouse", "cloud_arthouse", "@cloud_arthouse", "@arthouse_full_bot", "u2fp29gkufkzz", "5sbwt2_xek3mgjh", "ih73k1u", "rrntiqwtg0fjztkx")
             ):
                 continue
 

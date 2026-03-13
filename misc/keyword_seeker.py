@@ -95,6 +95,12 @@ def ask_yes_no(prompt):
 
 
 def main():
+    print("\n  Example regex patterns:")
+    print(r"    \$aact_[A-Za-z0-9+/=:]+        Adyen payment tokens")
+    print(r"    [A-Za-z0-9+/]{40,}={0,2}        Long base64 blobs")
+    print(r"    sk_(live|test)_[A-Za-z0-9]{24,}  Stripe secret keys")
+    print(r"    eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+  JWT tokens")
+    print(r"    AKIA[0-9A-Z]{16}                 AWS access key IDs")
     keyword = input("\n  Enter keyword / regex pattern to search for: ").strip()
     if not keyword:
         print("  No keyword provided. Exiting.")

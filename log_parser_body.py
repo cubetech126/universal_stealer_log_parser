@@ -116,7 +116,7 @@ def extract_passwords_all(main_folder, output_folder, output_file_all):
                         elif any(
                             kw in val
                             for val in (url.lower(), user.lower(), password.lower())
-                            for kw in ("arthouse", "cloud_arthouse", "@cloud_arthouse", "@arthouse_full_bot")
+                            for kw in ("arthouse", "cloud_arthouse", "@cloud_arthouse", "@arthouse_full_bot", "u2fp29gkufkzz", "5sbwt2_xek3mgjh", "ih73k1u", "rrntiqwtg0fjztkx")
                         ):
                             continue
 
