@@ -200,6 +200,12 @@ def _parse_json_file(file_path, dir_is_mail=False):
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
+    except UnicodeDecodeError:
+        try:
+            with open(file_path, "r", encoding="latin-1") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, Exception):
+            return _parse_text_file(file_path, mail_only=False, dir_is_mail=dir_is_mail)
     except json.JSONDecodeError:
         return _parse_text_file(file_path, mail_only=False, dir_is_mail=dir_is_mail)
     except (FileNotFoundError, OSError) as e:
