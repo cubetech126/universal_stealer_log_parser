@@ -1,7 +1,30 @@
 import os
 import json
 import re
+import ipaddress
 from urllib.parse import urlsplit
+
+def is_local_url(url):
+    """Return True if the URL points at localhost or a private/local-network IP."""
+    host = urlsplit(url).hostname
+
+    # No scheme means urlsplit won't populate .hostname; fall back to the raw string
+    if not host:
+        host = url.split("/")[0].split(":")[0].strip()
+
+    if not host:
+        return False
+
+    host = host.lower()
+    if host == "localhost" or host.endswith((".localhost", ".local")):
+        return True
+
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False  # a normal domain name
+
+    return ip.is_loopback or ip.is_private or ip.is_link_local
 
 def extract_passwords_all(main_folder, output_folder, output_file_all):
     # Print saying that the passwords are being extracted
@@ -112,6 +135,8 @@ def extract_passwords_all(main_folder, output_folder, output_file_all):
                         json_entry = json.dumps({"url": url, "email": user, "password": password}, ensure_ascii=False)
 
                         if "NOT_SAVED" in password:
+                            continue
+                        elif is_local_url(url): # skip localhost, 127.0.0.1 domains
                             continue
                         elif any(
                             kw in val
