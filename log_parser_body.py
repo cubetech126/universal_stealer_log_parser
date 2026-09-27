@@ -6,7 +6,10 @@ from urllib.parse import urlsplit
 
 def is_local_url(url):
     """Return True if the URL points at localhost or a private/local-network IP."""
-    host = urlsplit(url).hostname
+    try:
+        host = urlsplit(url).hostname
+    except ValueError:
+        host = None  # malformed URL (e.g. bad IPv6 bracket); fall back to raw parsing
 
     # No scheme means urlsplit won't populate .hostname; fall back to the raw string
     if not host:
