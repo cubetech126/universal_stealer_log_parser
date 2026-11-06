@@ -5,6 +5,57 @@ import uuid
 import time
 from urllib.parse import urlsplit
 
+
+# Lowercase names only. Keep vendor rules specific to avoid matching unrelated
+# application cookies just because their names contain words like "session".
+SKIPPED_COOKIE_NAMES = frozenset({
+    # Cloudflare: bot checks, routing, rate limiting, and waiting room.
+    "cf_clearance", "__cf_bm", "__cflb", "__cfruid", "_cfuvid",
+    "cf_ob_info", "cf_use_ob", "__cfwaitingroom",
+    # Akamai: bot management and edge performance.
+    "_abck", "ak_bmsc", "bm_sv", "bm_sz", "aka_a2",
+    # Google Analytics (including older versions) and advertising.
+    "_ga", "_gid", "_gat", "__utma", "__utmb", "__utmc", "__utmt",
+    "__utmv", "__utmz", "__utmx", "__utmxx", "_gcl_au",
+    "ide", "dsid", "anid",
+    # Meta advertising and Microsoft advertising/Clarity analytics.
+    "_fbp", "_fbc", "_uetsid", "_uetvid", "_clck", "_clsk", "muid", "clid",
+    # Adobe Analytics.
+    "s_cc", "s_sq", "s_vi", "s_fid", "s_ecid",
+    # HubSpot analytics and tracking consent.
+    "__hstc", "hubspotutk", "__hssc", "__hssrc", "__hs_opt_out",
+    "__hs_do_not_track", "__hs_initial_opt_in", "__hs_cookie_cat_pref",
+    # Hotjar analytics, sampling, and survey preferences.
+    "_hjid", "_hjfirstseen", "_hjabsolutesessioninprogress", "_hjtldtest",
+    "_hjincludedinpageviewsample", "_hjincludedinsessionsample",
+    "_hjminimizedpolls", "_hjdonepolls", "_hjclosedinteractions",
+    "_hjsessiontoolarge", "_hjsessionrejected", "_hjsessionresumed",
+    # Matomo tracking and consent.
+    "_pk_testcookie", "mtm_consent_removed", "mtm_cookie_consent",
+    # Consent banners and existing display preferences.
+    "optanonconsent", "optanonalertboxclosed", "euconsent-v2",
+    "cookieconsent", "cookiecontrol", "cookieconsent_status",
+    "language", "dark_mode",
+})
+
+# Only known vendor prefixes; identifiers after these vary by site/property.
+SKIPPED_COOKIE_PREFIXES = (
+    "cf_chl_",
+    "_ga_", "_gat_", "_gac_", "_gcl_",
+    "_pk_id.", "_pk_ses.", "_pk_ref.", "_pk_cvar.", "_pk_hsr.", "_pk_uid.",
+    "_hjsession_", "_hjsessionuser_", "_hjincludedinsessionsample_",
+    "amcv_", "amcvs_",
+)
+
+
+def _should_skip_cookie(name):
+    normalized_name = name.lower()
+    return (
+        normalized_name in SKIPPED_COOKIE_NAMES
+        or normalized_name.startswith(SKIPPED_COOKIE_PREFIXES)
+    )
+
+
 def extract_cookies_all(main_folder, output_folder, output_file_all):
     # Print saying that the cookies are being extracted
     print("Extracting cookies...")
@@ -21,15 +72,15 @@ def extract_cookies_all(main_folder, output_folder, output_file_all):
                 file_path = os.path.join(subdir, file)
                 file_uuid = str(uuid.uuid4())
                 try:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        lines = f.readlines()
-                except UnicodeDecodeError:
                     try:
+                        with open(file_path, "r", encoding="utf-8") as f:
+                            lines = f.readlines()
+                    except UnicodeDecodeError:
                         with open(file_path, "r", encoding="latin-1") as f:
                             lines = f.readlines()
-                    except Exception:
-                        print(f"Error: Unable to read file {file_path}. Skipping...")
-                        continue
+                except OSError as exc:
+                    print(f"Error: Unable to read file {file_path!r}: {exc}. Skipping...")
+                    continue
 
                 for raw_line in lines:
                     line = raw_line.strip()
@@ -46,6 +97,10 @@ def extract_cookies_all(main_folder, output_folder, output_file_all):
 
                     # Validate domain strictly
                     if not re.fullmatch(r"^\.?[A-Za-z0-9.-]+$", domain):
+                        continue
+
+                    if _should_skip_cookie(name):
+                        print(f"Skipping cookie {name} because it is blacklisted.")
                         continue
 
                     include_subdomains = include_subdomains_str.upper() == "TRUE"
@@ -81,12 +136,6 @@ def extract_cookies_all(main_folder, output_folder, output_file_all):
                     if expires_value < time.time():
                        print(f"Skipping cookie {name} because it has expired on [{expires_value}]")
                        continue
-
-                    blacklisted_cookies = ["cf_clearance", "_ga", "_gid", "_gat", "__utma", "__utmb", "__utmc", "__utmz", "__utmv", "_gcl_au", "IDE", "DSID", "ANID", "_fbp", "OptanonConsent", "euconsent-v2", "CookieConsent", "CookieControl", "__hs_opt_out", "__cf_bm", "__cfruid", "cf_ob_info", "cf_use_ob", "language", "dark_mode"]
-
-                    if (name.lower() in blacklisted_cookies):
-                        print(f"Skipping cookie {name} because it is blacklisted.")
-                        continue
 
                     # Deduplicate identical cookie records
                     normalized_key = f"{domain}|{name}|{value}|{expires_value}|"

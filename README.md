@@ -45,3 +45,22 @@ This log parser solution has been tested on UNIX systems only, Windows OS tests 
 1. To make it work simply run main.py. 
 2. You will be asked to specify a main folder path, meaning a path to a folder where unpacked logs are situated. Example: Usr/milxss/logs
 3. To thank me, you can star this GitHub repository <3
+
+## Cookie filtering
+
+`cookie_parser_body.py` skips common CDN/bot-management, analytics, advertising,
+consent-banner, and display-preference cookies. Edit `SKIPPED_COOKIE_NAMES` for
+exact names and `SKIPPED_COOKIE_PREFIXES` for vendor-specific name families.
+Both match case-insensitively; prefix rules cover variants such as `_ga_ABC123`
+and `_pk_id.1.abcd`. These are name-based heuristics: review them for the systems
+you investigate, since cookie names alone cannot guarantee a cookie's purpose.
+Output is appended, so these rules do not remove records from earlier runs.
+
+Cookie references: [Cloudflare](https://developers.cloudflare.com/fundamentals/reference/policies-compliances/cloudflare-cookies/),
+[Akamai](https://www.akamai.com/legal/manage-cookie-preferences),
+[Google Analytics](https://support.google.com/analytics/answer/11397207),
+[Microsoft Clarity](https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-cookies),
+[Adobe Analytics](https://experienceleague.adobe.com/en/docs/core-services/interface/data-collection/cookies/analytics),
+[HubSpot](https://knowledge.hubspot.com/privacy-and-consent/what-cookies-does-hubspot-set-in-a-visitor-s-browser),
+[Matomo](https://matomo.org/faq/general/faq_146/), and
+[OneTrust](https://docs.onetrust.com/en/consent--preferences/cookie-consent/managing-cookie-scripts-cookie-blocking-and-technical-implementation/onetrust-cookies).
